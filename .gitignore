@@ -1,0 +1,39 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Metro bundler
+.metro-cache/
+
+# React Native
+/ios/build/
+/android/build/
+/android/app/build/
+
+# Android
+.gradle/
+local.properties
+*.keystore
+
+# iOS
+ios/Pods/
+*.xcuserdatad/
+# We want to keep the project definition, but not user-specific settings
+*.xcworkspace/contents.xcworkspacedata
+
+# macOS
+.DS_Store
+
+# IDEs / Editors
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Environment variables
+.env
+.env.*
+!.env.example
