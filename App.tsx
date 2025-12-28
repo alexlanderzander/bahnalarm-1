@@ -1,39 +1,61 @@
-
 import React, { useEffect } from 'react';
 import { StatusBar, Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import notifee, { AndroidImportance } from '@notifee/react-native';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { initBackgroundFetch } from './src/services/BackgroundUpdateService';
+import { requestAlarmPermission, isAlarmKitAvailable } from './src/services/AlarmKitService';
+import ErrorBoundary from './src/components/ErrorBoundary';
+import { logger } from './src/utils/logger';
+
+const log = logger.app;
 
 const App = () => {
   useEffect(() => {
-    // This function runs once on app startup
     const bootstrapApp = async () => {
-      // --- 1. Request permissions (required for iOS)
-      await notifee.requestPermission();
+      log.debug('Starting app initialization...');
 
-      // --- 2. Create a channel (required for Android)
-      const channelId = await notifee.createChannel({
+      // 1. Request notification permissions
+      await notifee.requestPermission({
+        sound: true,
+        alert: true,
+        badge: true,
+        criticalAlert: true,
+      });
+
+      // 2. Create notification channel (Android)
+      await notifee.createChannel({
         id: 'alarm',
         name: 'Alarms',
-        sound: 'default', // Optional: specify a sound
-        importance: AndroidImportance.HIGH, // Make sure notifications are delivered promptly
+        sound: 'default',
+        importance: AndroidImportance.HIGH,
+        vibration: true,
       });
-      console.log('Notification channel created:', channelId);
 
-      // --- 3. Initialize the background fetch service
+      // 3. Request AlarmKit permission (iOS 26+)
+      if (Platform.OS === 'ios') {
+        const alarmKitAvailable = await isAlarmKitAvailable();
+        if (alarmKitAvailable) {
+          await requestAlarmPermission();
+        }
+      }
+
+      // 4. Initialize background fetch
       initBackgroundFetch();
+
+      log.debug('App initialization complete');
     };
 
     bootstrapApp();
   }, []);
 
   return (
-    <NavigationContainer>
-      <StatusBar barStyle="light-content" />
-      <AppNavigator />
-    </NavigationContainer>
+    <ErrorBoundary>
+      <NavigationContainer>
+        <StatusBar barStyle="light-content" />
+        <AppNavigator />
+      </NavigationContainer>
+    </ErrorBoundary>
   );
 };
 

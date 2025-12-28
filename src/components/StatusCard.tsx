@@ -12,7 +12,20 @@ interface StatusCardProps {
 
 export const StatusCard: React.FC<StatusCardProps> = ({ journey, isLoading, onRefresh }) => {
   const leg = journey?.legs[0];
+  const lastLeg = journey?.legs[journey.legs.length - 1];
   const delayInMinutes = leg?.departureDelay ? Math.round(leg.departureDelay / 60) : 0;
+  const transferCount = journey?.legs ? journey.legs.length - 1 : 0;
+
+  // Calculate journey duration in minutes
+  const getDuration = () => {
+    if (!leg || !lastLeg) return null;
+    const departure = parseISO(leg.plannedDeparture);
+    const arrival = parseISO(lastLeg.plannedArrival);
+    const durationMs = arrival.getTime() - departure.getTime();
+    return Math.round(durationMs / 60000);
+  };
+
+  const durationMinutes = getDuration();
 
   const renderContent = () => {
     if (isLoading) {
@@ -30,6 +43,12 @@ export const StatusCard: React.FC<StatusCardProps> = ({ journey, isLoading, onRe
           <Text style={styles.trainName}>{leg.line?.name ?? 'N/A'}</Text>
           <Text style={theme.label}>Platform</Text>
           <Text style={styles.platform}>{leg.departurePlatform ?? '-'}</Text>
+          {transferCount > 0 && (
+            <>
+              <Text style={theme.label}>Transfers</Text>
+              <Text style={styles.platform}>{transferCount}</Text>
+            </>
+          )}
         </View>
         <View style={styles.rightColumn}>
           <Text style={theme.label}>Departure</Text>
@@ -39,6 +58,19 @@ export const StatusCard: React.FC<StatusCardProps> = ({ journey, isLoading, onRe
           <Text style={[styles.delay, delayInMinutes > 0 ? styles.delayed : styles.onTime]}>
             {delayInMinutes > 0 ? `+${delayInMinutes} min` : 'On Time'}
           </Text>
+          {lastLeg && (
+            <>
+              <Text style={[theme.label, { marginTop: 10 }]}>Arrival</Text>
+              <Text style={styles.arrivalTime}>
+                {format(parseISO(lastLeg.plannedArrival), 'HH:mm')}
+              </Text>
+            </>
+          )}
+          {durationMinutes && (
+            <Text style={styles.durationText}>
+              {Math.floor(durationMinutes / 60)}h {durationMinutes % 60}min
+            </Text>
+          )}
         </View>
       </View>
     );
@@ -104,5 +136,16 @@ const styles = StyleSheet.create({
   },
   onTime: {
     color: colors.success, // Use system green for success
+  },
+  arrivalTime: {
+    ...theme.body,
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  durationText: {
+    ...theme.body,
+    fontSize: 14,
+    color: colors.textMuted,
+    marginTop: 5,
   },
 });

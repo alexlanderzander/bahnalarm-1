@@ -3,14 +3,21 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert, Modal, FlatList, Keybo
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { formatISO, parseISO, subMinutes } from 'date-fns';
+import { formatISO } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { theme, colors } from '../styles/styles';
 import { DaySettingForm } from '../components/TrainConnectionForm';
 import { findNextActiveCommute } from '../utils/timeHelper';
+import { selectOptimalJourney, getFirstLeg, DEFAULT_SAFETY_BUFFER } from '../utils/journeySelection';
 import { findJourneyByArrival } from '../api/DbApiService';
+import { scheduleAlarmNotification } from '../services/BackgroundUpdateService';
+import { scheduleAlarm as scheduleNativeAlarm, isAlarmKitAvailable } from '../services/AlarmKitService';
+import { logger } from '../utils/logger';
 import type { WeekSettings, Commute } from '../types/SettingsTypes';
+
+const log = logger.settings;
 
 const WEEK_SETTINGS_KEY = '@BahnAlarm:weekSettings';
 const ALARM_TIME_KEY = '@BahnAlarm:alarmTime';
@@ -23,11 +30,19 @@ const defaultCommute: Commute = {
   id: '', name: 'New Commute', enabled: true,
   startStation: null, destinationStation: null,
   arrivalTime: '09:00', preparationTime: 75,
+  safetyBuffer: DEFAULT_SAFETY_BUFFER,
+  isRecurring: true, // Default to weekly recurring
 };
 
-export const SettingsScreen = ({ navigation }) => {
+type DayIndex = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+
+interface Props {
+  navigation: NativeStackNavigationProp<any>;
+}
+
+export const SettingsScreen = ({ navigation }: Props) => {
   const [weekSettings, setWeekSettings] = useState<WeekSettings>(defaultWeekSettings);
-  const [selectedDay, setSelectedDay] = useState<number>(new Date().getDay());
+  const [selectedDay, setSelectedDay] = useState<DayIndex>(new Date().getDay() as DayIndex);
   const [isModalVisible, setModalVisible] = useState(false);
   const [editingCommute, setEditingCommute] = useState<Commute | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -48,13 +63,13 @@ export const SettingsScreen = ({ navigation }) => {
                 if (Array.isArray(dayData)) {
                   newWeekSettings[dayIndex] = dayData.map(item => ({ ...defaultCommute, ...item, id: item.id || uuidv4() }));
                 } else if (typeof dayData === 'object') {
-                  console.log(`Migrating old data format for day ${i}`);
+                  // Migrate old single-commute format
                   newWeekSettings[dayIndex] = [{ ...defaultCommute, ...dayData, id: dayData.id || uuidv4() }];
                 }
               }
             }
           }
-        } catch (e) { console.error("Failed to parse settings, starting fresh.", e); }
+        } catch (e) { log.error('Failed to parse settings:', e); }
       }
       setWeekSettings(newWeekSettings);
       setIsLoading(false);
@@ -74,7 +89,7 @@ export const SettingsScreen = ({ navigation }) => {
   };
 
   const handleUpdateInModal = (updatedData: Partial<Commute>) => {
-    setEditingCommute(prev => ({ ...prev, ...updatedData }));
+    setEditingCommute(prev => prev ? { ...prev, ...updatedData } : null);
   };
 
   const handleSaveFromModal = async () => {
@@ -126,36 +141,43 @@ export const SettingsScreen = ({ navigation }) => {
   };
 
   const handleSaveAll = async () => {
-    // --- START DEBUG LOGGING ---
-    console.log("----------------------------------------");
-    console.log("[SETTINGS DEBUG] handleSaveAll started.");
-    // --- END DEBUG LOGGING ---
-
     try {
       await AsyncStorage.setItem(WEEK_SETTINGS_KEY, JSON.stringify(weekSettings));
 
       const nextCommute = findNextActiveCommute(weekSettings);
       if (nextCommute) {
-        // --- START DEBUG LOGGING ---
-        console.log("[SETTINGS DEBUG] nextCommute found for initial alarm calc:", nextCommute.settings.name);
-        console.log("[SETTINGS DEBUG]   startStation:", nextCommute.settings.startStation?.name);
-        console.log("[SETTINGS DEBUG]   destinationStation:", nextCommute.settings.destinationStation?.name);
-        // --- END DEBUG LOGGING ---
-
         if (nextCommute.settings.startStation && nextCommute.settings.destinationStation) {
-          console.log("[SETTINGS DEBUG] Calling findJourneyByArrival for initial alarm calc...");
-          const journeyResponse = await findJourneyByArrival(nextCommute.settings.startStation.id, nextCommute.settings.destinationStation.id, formatISO(nextCommute.commuteDate));
-          const leg = journeyResponse.journeys[0]?.legs[0];
-          if (leg) {
-            const plannedDeparture = parseISO(leg.plannedDeparture);
-            const initialAlarmTime = subMinutes(plannedDeparture, nextCommute.settings.preparationTime);
-            await AsyncStorage.setItem(ALARM_TIME_KEY, formatISO(initialAlarmTime));
+          log.debug(`Saving settings for ${nextCommute.settings.name}`);
+          const journeyResponse = await findJourneyByArrival(
+            nextCommute.settings.startStation.id,
+            nextCommute.settings.destinationStation.id,
+            formatISO(nextCommute.commuteDate)
+          );
+
+          const safetyBuffer = nextCommute.settings.safetyBuffer ?? DEFAULT_SAFETY_BUFFER;
+          const selection = selectOptimalJourney(
+            journeyResponse.journeys,
+            nextCommute.commuteDate,
+            nextCommute.settings.preparationTime,
+            safetyBuffer
+          );
+
+          const leg = getFirstLeg(selection.journey);
+          if (leg && selection.alarmTime) {
+            log.debug(`Selected: ${selection.reasoning}`);
+            await AsyncStorage.setItem(ALARM_TIME_KEY, formatISO(selection.alarmTime));
+
+            await scheduleAlarmNotification(selection.alarmTime, leg);
+
+            const alarmKitAvailable = await isAlarmKitAvailable();
+            if (alarmKitAvailable) {
+              const trainName = leg.line?.name ?? 'Your train';
+              const delaySeconds = leg.departureDelay ?? 0;
+              const delayInfo = delaySeconds > 0 ? `+${Math.round(delaySeconds / 60)}min delay` : 'On time';
+              await scheduleNativeAlarm(selection.alarmTime, `Time for ${trainName}`, delayInfo);
+            }
           }
-        } else {
-          console.log("[SETTINGS DEBUG] Skipping findJourneyByArrival: start/destination station missing for nextCommute.");
         }
-      } else {
-        console.log("[SETTINGS DEBUG] No nextCommute found for initial alarm calc.");
       }
 
       // FIX: Don't clear history on save - preserve adjustment history
@@ -177,7 +199,7 @@ export const SettingsScreen = ({ navigation }) => {
     <SafeAreaView style={theme.container} edges={['top', 'bottom']}>
       <View style={styles.daySelectorContainer}>
         {DAYS.map((day, index) => (
-          <TouchableOpacity key={index} style={[styles.dayButton, selectedDay === index && styles.dayButtonSelected]} onPress={() => setSelectedDay(index)}>
+          <TouchableOpacity key={index} style={[styles.dayButton, selectedDay === index && styles.dayButtonSelected]} onPress={() => setSelectedDay(index as DayIndex)}>
             <Text style={[styles.dayText, selectedDay === index && styles.dayTextSelected]}>{day}</Text>
           </TouchableOpacity>
         ))}

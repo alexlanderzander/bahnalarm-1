@@ -1,39 +1,51 @@
 import React, { useState, useCallback } from 'react';
-import { ScrollView, View, TouchableOpacity, Text, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context'; // <-- FIX: Import from correct library
+import { ScrollView, View, TouchableOpacity, Text, StyleSheet, RefreshControl } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { format, formatISO, parseISO, subMinutes } from 'date-fns';
+import { format, formatISO } from 'date-fns';
 
 import { theme, colors } from '../styles/styles';
 import { AlarmDisplay } from '../components/AlarmDisplay';
 import { StatusCard } from '../components/StatusCard';
 import { AdjustmentHistory } from '../components/AdjustmentHistory';
+import { EmptyState } from '../components/EmptyState';
 
 import { findJourneyByArrival } from '../api/DbApiService';
 import { findNextActiveCommute } from '../utils/timeHelper';
+import { selectOptimalJourney, getFirstLeg, DEFAULT_SAFETY_BUFFER } from '../utils/journeySelection';
+import { scheduleAlarmNotification } from '../services/BackgroundUpdateService';
+import { scheduleAlarm as scheduleNativeAlarm, isAlarmKitAvailable } from '../services/AlarmKitService';
+import { logger } from '../utils/logger';
 import type { Journey } from '../types/ApiTypes';
 import type { WeekSettings } from '../types/SettingsTypes';
 import type { AlarmAdjustment } from '../types/AlarmAdjustment';
+
+const log = logger.dashboard;
 
 const ALARM_TIME_KEY = '@BahnAlarm:alarmTime';
 const ADJUSTMENT_HISTORY_KEY = '@BahnAlarm:adjustmentHistory';
 const WEEK_SETTINGS_KEY = '@BahnAlarm:weekSettings';
 
-export const DashboardScreen = ({ navigation }) => {
+interface Props {
+  navigation: NativeStackNavigationProp<any>;
+}
+
+export const DashboardScreen = ({ navigation }: Props) => {
   const [alarmTime, setAlarmTime] = useState<string | null>(null);
   const [journey, setJourney] = useState<Journey | null>(null);
   const [history, setHistory] = useState<AlarmAdjustment[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasCommutes, setHasCommutes] = useState(false);
   const [nextCommuteInfo, setNextCommuteInfo] = useState<{ name: string; day: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
     setJourney(null);
     setNextCommuteInfo(null);
-
-    console.log("----------------------------------------");
-    console.log("[DASHBOARD DEBUG] loadData started.");
+    setError(null);
 
     try {
       const settingsString = await AsyncStorage.getItem(WEEK_SETTINGS_KEY);
@@ -45,58 +57,120 @@ export const DashboardScreen = ({ navigation }) => {
 
       if (settingsString) {
         const weekSettings: WeekSettings = JSON.parse(settingsString);
+
+        // Check if any day has commutes configured
+        const hasAnyCommutes = Object.values(weekSettings).some(
+          (day) => Array.isArray(day) && day.length > 0 && day.some(c => c.enabled)
+        );
+        setHasCommutes(hasAnyCommutes);
+
         const nextCommute = findNextActiveCommute(weekSettings);
 
         if (nextCommute) {
-          console.log("[DASHBOARD DEBUG] nextCommute found:", nextCommute.settings.name, "on", format(nextCommute.commuteDate, 'eeee'));
-          console.log("[DASHBOARD DEBUG]   startStation:", nextCommute.settings.startStation?.name);
-          console.log("[DASHBOARD DEBUG]   destinationStation:", nextCommute.settings.destinationStation?.name);
-
           const { commuteDate, settings } = nextCommute;
           setNextCommuteInfo({ name: settings.name, day: format(commuteDate, 'eeee') });
 
           if (settings.startStation && settings.destinationStation) {
-            console.log("[DASHBOARD DEBUG] Calling findJourneyByArrival...");
-            const journeyData = await findJourneyByArrival(settings.startStation.id, settings.destinationStation.id, formatISO(commuteDate));
-            const firstJourney = journeyData.journeys[0] ?? null;
-            setJourney(firstJourney);
+            log.debug(`Loading journey for ${settings.name}`);
+            const journeyData = await findJourneyByArrival(
+              settings.startStation.id,
+              settings.destinationStation.id,
+              formatISO(commuteDate)
+            );
 
-            // FIX: Update alarm time from live journey data
-            if (firstJourney && firstJourney.legs[0]) {
-              const leg = firstJourney.legs[0];
-              const plannedDeparture = parseISO(leg.plannedDeparture);
-              const delaySeconds = leg.departureDelay ?? 0;
-              const actualDeparture = new Date(plannedDeparture.getTime() + delaySeconds * 1000);
-              const newAlarmTime = subMinutes(actualDeparture, settings.preparationTime);
-              setAlarmTime(formatISO(newAlarmTime));
-              // Also persist the updated alarm time
-              await AsyncStorage.setItem(ALARM_TIME_KEY, formatISO(newAlarmTime));
+            const safetyBuffer = settings.safetyBuffer ?? DEFAULT_SAFETY_BUFFER;
+            const selection = selectOptimalJourney(
+              journeyData.journeys,
+              commuteDate,
+              settings.preparationTime,
+              safetyBuffer
+            );
+
+            setJourney(selection.journey);
+
+            if (selection.journey && selection.alarmTime) {
+              const leg = getFirstLeg(selection.journey);
+
+              log.debug(`Selected: ${selection.reasoning}`);
+              setAlarmTime(formatISO(selection.alarmTime));
+              await AsyncStorage.setItem(ALARM_TIME_KEY, formatISO(selection.alarmTime));
+
+              if (leg) {
+                await scheduleAlarmNotification(selection.alarmTime, leg);
+
+                const alarmKitAvailable = await isAlarmKitAvailable();
+                if (alarmKitAvailable) {
+                  const trainName = leg.line?.name ?? 'Your train';
+                  const delaySeconds = leg.departureDelay ?? 0;
+                  const delayInfo = delaySeconds > 0 ? `+${Math.round(delaySeconds / 60)}min delay` : 'On time';
+                  await scheduleNativeAlarm(selection.alarmTime, `Time for ${trainName}`, delayInfo);
+                }
+              }
             }
-          } else {
-            console.log("[DASHBOARD DEBUG] Skipping findJourneyByArrival: start/destination station missing.");
           }
-        } else {
-          console.log("[DASHBOARD DEBUG] No nextCommute found.");
         }
       } else {
-        console.log("[DASHBOARD DEBUG] No weekSettings found in AsyncStorage.");
+        setHasCommutes(false);
       }
-    } catch (error) {
-      console.error('[DashboardScreen] Error loading data:', error);
+    } catch (err) {
+      log.error('Error loading data:', err);
+      setError('Failed to load journey data. Pull down to retry.');
     } finally {
       setIsLoading(false);
-      console.log("[DASHBOARD DEBUG] loadData finished.");
-      console.log("----------------------------------------");
     }
   }, []);
 
   useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
+  const goToSettings = () => navigation.navigate('Settings');
+
+  // Show empty state if no commutes configured
+  if (!isLoading && !hasCommutes) {
+    return (
+      <SafeAreaView style={theme.container} edges={['top', 'bottom']}>
+        <EmptyState
+          emoji="🚂"
+          title="No commutes set up"
+          message="Add your first commute to get smart wake-up alarms based on live train schedules."
+          actionLabel="Add Commute"
+          onAction={goToSettings}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  // Show error state with retry
+  if (!isLoading && error) {
+    return (
+      <SafeAreaView style={theme.container} edges={['top', 'bottom']}>
+        <EmptyState
+          emoji="⚠️"
+          title="Connection Error"
+          message={error}
+          actionLabel="Retry"
+          onAction={loadData}
+        />
+        <View style={styles.footer}>
+          <TouchableOpacity style={styles.settingsButton} onPress={goToSettings}>
+            <Text style={styles.settingsButtonText}>Settings</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
-    <SafeAreaView style={theme.container} edges={['top', 'bottom']}> {/* <-- FIX: Use edges prop */}
+    <SafeAreaView style={theme.container} edges={['top', 'bottom']}>
       <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContentContainer}
+        refreshControl={
+          <RefreshControl
+            refreshing={isLoading}
+            onRefresh={loadData}
+            tintColor={colors.text}
+          />
+        }
       >
         <AlarmDisplay alarmTime={alarmTime} commuteName={nextCommuteInfo?.name ?? null} commuteDay={nextCommuteInfo?.day ?? null} />
         <View style={{ height: 20 }} />
@@ -106,7 +180,7 @@ export const DashboardScreen = ({ navigation }) => {
       <View style={styles.footer}>
         <TouchableOpacity
           style={styles.settingsButton}
-          onPress={() => navigation.navigate('Settings')}
+          onPress={goToSettings}
         >
           <Text style={styles.settingsButtonText}>Settings</Text>
         </TouchableOpacity>
