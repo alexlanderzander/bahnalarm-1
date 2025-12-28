@@ -1,23 +1,50 @@
+import { set, isPast, addDays, formatISO, getDay } from 'date-fns';
+import type { WeekSettings, DaySetting } from './SettingsTypes';
 
-import { set, isPast, addDays, formatISO } from 'date-fns';
+interface NextCommute {
+  commuteDate: Date;
+  settings: DaySetting;
+}
 
 /**
- * Calculates the next occurrence of a given commute time.
- * If the time is in the future today, it returns today's date with that time.
- * If the time is in the past today, it returns tomorrow's date with that time.
- * @param departureTimeString A string representing the time, e.g., "08:00"
- * @returns An ISO 8601 string of the next commute date and time.
+ * Finds the very next active commute from a set of weekly settings.
+ * @param weekSettings The object containing settings for all days.
+ * @returns An object with the next commute's date and settings, or null if none are found.
  */
-export const getNextArrivalDateTime = (arrivalTimeString: string): string => {
+export const findNextActiveCommute = (weekSettings: WeekSettings): NextCommute | null => {
   const now = new Date();
-  const [hours, minutes] = arrivalTimeString.split(':').map(Number);
+  const currentDayIndex = getDay(now); // 0=Sun, 1=Mon, ...
 
-  let nextCommuteDate = set(now, { hours, minutes, seconds: 0, milliseconds: 0 });
+  // Check the next 7 days starting from today
+  for (let i = 0; i < 7; i++) {
+    const dayToCheckIndex = (currentDayIndex + i) % 7;
+    const daySetting = weekSettings[dayToCheckIndex];
 
-  // If the calculated time for today is already in the past, set it for tomorrow
-  if (isPast(nextCommuteDate)) {
-    nextCommuteDate = addDays(nextCommuteDate, 1);
+    if (daySetting && daySetting.enabled) {
+      const [hours, minutes] = daySetting.arrivalTime.split(':').map(Number);
+      
+      // Calculate the potential commute date
+      const potentialCommuteDate = set(addDays(now, i), {
+        hours,
+        minutes,
+        seconds: 0,
+        milliseconds: 0,
+      });
+
+      // If we are checking today (i=0), we must ensure the time has not already passed.
+      // For any future day (i>0), the time is always valid.
+      if (i === 0 && isPast(potentialCommuteDate)) {
+        continue; // This commute time for today has already passed, check the next day.
+      }
+
+      // We found the next valid, enabled commute.
+      return {
+        commuteDate: potentialCommuteDate,
+        settings: daySetting,
+      };
+    }
   }
 
-  return formatISO(nextCommuteDate);
+  // No enabled commute found in the next 7 days
+  return null;
 };

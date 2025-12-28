@@ -1,73 +1,250 @@
 
 import React, { useState, useCallback } from 'react';
-import { View, Alert, SafeAreaView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, Alert, Modal, FlatList, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { subMinutes, parseISO, format, formatISO } from 'date-fns';
+import { formatISO, parseISO, subMinutes } from 'date-fns';
+import { v4 as uuidv4 } from 'uuid';
 
-import { theme } from '../styles/styles';
-import { TrainConnectionForm } from '../components/TrainConnectionForm';
-import { findJourneyByArrival } from '../api/DbApiService'; // <-- Use new function
-import { getNextArrivalDateTime } from '../utils/timeHelper'; // <-- Use new function
-import type { UserSettings } from '../types/SettingsTypes';
+import { theme, colors } from '../styles/styles';
+import { DaySettingForm } from '../components/TrainConnectionForm';
+import { findNextActiveCommute } from '../utils/timeHelper';
+import { findJourneyByArrival } from '../api/DbApiService';
+import type { WeekSettings, Commute } from '../types/SettingsTypes';
 
+const WEEK_SETTINGS_KEY = '@BahnAlarm:weekSettings';
 const ALARM_TIME_KEY = '@BahnAlarm:alarmTime';
 const ADJUSTMENT_HISTORY_KEY = '@BahnAlarm:adjustmentHistory';
-const USER_SETTINGS_KEY = '@BahnAlarm:userSettings';
+
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const defaultWeekSettings: WeekSettings = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
+
+const defaultCommute: Commute = {
+  id: '', name: 'New Commute', enabled: true,
+  startStation: null, destinationStation: null,
+  arrivalTime: '09:00', preparationTime: 75,
+};
 
 export const SettingsScreen = ({ navigation }) => {
-  const [initialSettings, setInitialSettings] = useState<UserSettings | null>(null);
+  const [weekSettings, setWeekSettings] = useState<WeekSettings>(defaultWeekSettings);
+  const [selectedDay, setSelectedDay] = useState<number>(new Date().getDay());
+  const [isModalVisible, setModalVisible] = useState(false);
+  const [editingCommute, setEditingCommute] = useState<Commute | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const loadSettings = useCallback(async () => {
-    const settingsString = await AsyncStorage.getItem(USER_SETTINGS_KEY);
-    if (settingsString) {
-      setInitialSettings(JSON.parse(settingsString));
-    }
-    setIsLoading(false);
-  }, []);
+  useFocusEffect(useCallback(() => {
+    const loadSettings = async () => {
+      setIsLoading(true);
+      const settingsString = await AsyncStorage.getItem(WEEK_SETTINGS_KEY);
+      let newWeekSettings = { ...defaultWeekSettings };
+      if (settingsString) {
+        try {
+          const storedData = JSON.parse(settingsString);
+          if (storedData && typeof storedData === 'object') {
+            for (let i = 0; i < 7; i++) {
+              const dayData = storedData[String(i)];
+              if (dayData) {
+                if (Array.isArray(dayData)) {
+                  newWeekSettings[i] = dayData.map(item => ({ ...defaultCommute, ...item, id: item.id || uuidv4() }));
+                } else if (typeof dayData === 'object') {
+                  console.log(`Migrating old data format for day ${i}`);
+                  newWeekSettings[i] = [{ ...defaultCommute, ...dayData, id: dayData.id || uuidv4() }];
+                }
+              }
+            }
+          }
+        } catch (e) { console.error("Failed to parse settings, starting fresh.", e); }
+      }
+      setWeekSettings(newWeekSettings);
+      setIsLoading(false);
+    };
+    loadSettings();
+  }, []));
 
-  useFocusEffect(
-    useCallback(() => {
-      loadSettings();
-    }, [loadSettings])
-  );
+  const handleAddNew = () => {
+    const newCommute: Commute = { ...defaultCommute, id: uuidv4() };
+    setEditingCommute(newCommute);
+    setModalVisible(true);
+  };
 
-  const handleSave = async (settings: UserSettings) => {
-    try {
-      await AsyncStorage.setItem(USER_SETTINGS_KEY, JSON.stringify(settings));
+  const handleEdit = (commute: Commute) => {
+    setEditingCommute({ ...defaultCommute, ...commute });
+    setModalVisible(true);
+  };
 
-      // *** NEW "ARRIVE BY" LOGIC ***
-      const nextArrivalDateTime = getNextArrivalDateTime(settings.arrivalTime);
-      const journeyResponse = await findJourneyByArrival(settings.startStation.id, settings.destinationStation.id, nextArrivalDateTime);
-      const leg = journeyResponse.journeys[0]?.legs[0];
+  const handleUpdateInModal = (updatedData: Partial<Commute>) => {
+    setEditingCommute(prev => ({ ...prev, ...updatedData }));
+  };
 
-      if (!leg) {
-        Alert.alert('No Journey Found', 'Could not find a train that arrives by your specified time.');
-        return;
+  const handleSaveFromModal = async () => {
+    if (!editingCommute) return;
+
+    setWeekSettings(prevWeekSettings => {
+      const dayCommutes = [...(prevWeekSettings[selectedDay] || [])];
+      const existingIndex = dayCommutes.findIndex(c => c.id === editingCommute.id);
+
+      if (existingIndex > -1) {
+        dayCommutes[existingIndex] = editingCommute;
+      } else {
+        dayCommutes.push(editingCommute);
       }
 
-      // The alarm is based on the DEPARTURE time of the train that ARRIVES on time.
-      const plannedDeparture = parseISO(leg.plannedDeparture);
-      const initialAlarmTime = subMinutes(plannedDeparture, settings.preparationTime);
+      const updatedWeekSettings = { ...prevWeekSettings, [selectedDay]: dayCommutes };
+      AsyncStorage.setItem(WEEK_SETTINGS_KEY, JSON.stringify(updatedWeekSettings));
+      return updatedWeekSettings;
+    });
 
-      await AsyncStorage.setItem(ALARM_TIME_KEY, formatISO(initialAlarmTime));
+    setModalVisible(false);
+    setEditingCommute(null);
+  };
+
+  const handleDeleteCommute = async () => {
+    if (!editingCommute || !editingCommute.id) return;
+
+    Alert.alert(
+      "Delete Commute",
+      `Are you sure you want to delete "${editingCommute.name}"?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete", style: "destructive", onPress: async () => {
+            setWeekSettings(prevWeekSettings => {
+              const updatedDayCommutes = (prevWeekSettings[selectedDay] || []).filter(
+                c => c.id !== editingCommute.id
+              );
+              const updatedWeekSettings = { ...prevWeekSettings, [selectedDay]: updatedDayCommutes };
+              AsyncStorage.setItem(WEEK_SETTINGS_KEY, JSON.stringify(updatedWeekSettings));
+              return updatedWeekSettings;
+            });
+            setModalVisible(false);
+            setEditingCommute(null);
+          }
+        }
+      ]
+    );
+  };
+
+  const handleSaveAll = async () => {
+    // --- START DEBUG LOGGING ---
+    console.log("----------------------------------------");
+    console.log("[SETTINGS DEBUG] handleSaveAll started.");
+    // --- END DEBUG LOGGING ---
+
+    try {
+      await AsyncStorage.setItem(WEEK_SETTINGS_KEY, JSON.stringify(weekSettings));
+      
+      const nextCommute = findNextActiveCommute(weekSettings);
+      if (nextCommute) {
+        // --- START DEBUG LOGGING ---
+        console.log("[SETTINGS DEBUG] nextCommute found for initial alarm calc:", nextCommute.settings.name);
+        console.log("[SETTINGS DEBUG]   startStation:", nextCommute.settings.startStation?.name);
+        console.log("[SETTINGS DEBUG]   destinationStation:", nextCommute.settings.destinationStation?.name);
+        // --- END DEBUG LOGGING ---
+
+        if(nextCommute.settings.startStation && nextCommute.settings.destinationStation){
+          console.log("[SETTINGS DEBUG] Calling findJourneyByArrival for initial alarm calc...");
+          const journeyResponse = await findJourneyByArrival(nextCommute.settings.startStation.id, nextCommute.settings.destinationStation.id, formatISO(nextCommute.commuteDate));
+          const leg = journeyResponse.journeys[0]?.legs[0];
+          if (leg) {
+            const plannedDeparture = parseISO(leg.plannedDeparture);
+            const initialAlarmTime = subMinutes(plannedDeparture, nextCommute.settings.preparationTime);
+            await AsyncStorage.setItem(ALARM_TIME_KEY, formatISO(initialAlarmTime));
+          }
+        } else {
+          console.log("[SETTINGS DEBUG] Skipping findJourneyByArrival: start/destination station missing for nextCommute.");
+        }
+      } else {
+        console.log("[SETTINGS DEBUG] No nextCommute found for initial alarm calc.");
+      }
+
       await AsyncStorage.setItem(ADJUSTMENT_HISTORY_KEY, JSON.stringify([]));
 
-      Alert.alert('Settings Saved', `To arrive by ${format(parseISO(leg.arrival), 'HH:mm')}, your alarm is set for ${format(initialAlarmTime, "HH:mm")}.`);
+      Alert.alert('Settings Saved', 'Your weekly commute settings have been saved.');
       navigation.goBack();
 
-    } catch (error) {
+    } catch (error) { 
       console.error('[SettingsScreen] Error saving settings:', error);
-      Alert.alert('Error', 'Failed to save settings. The API might be offline.');
+      Alert.alert('Error', 'Failed to save settings.'); 
+    } finally {
+      console.log("[SETTINGS DEBUG] handleSaveAll finished.");
+      console.log("----------------------------------------");
     }
   };
 
   return (
-    <SafeAreaView style={theme.container}>
+    <SafeAreaView style={theme.container} edges={['top', 'bottom']}>
+      <View style={styles.daySelectorContainer}>
+        {DAYS.map((day, index) => (
+          <TouchableOpacity key={index} style={[styles.dayButton, selectedDay === index && styles.dayButtonSelected]} onPress={() => setSelectedDay(index)}>
+            <Text style={[styles.dayText, selectedDay === index && styles.dayTextSelected]}>{day}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      
       {!isLoading && (
-        <TrainConnectionForm onSave={handleSave} initialSettings={initialSettings} />
+        <FlatList
+          data={weekSettings[selectedDay] || []}
+          keyExtractor={item => item.id}
+          renderItem={({ item }) => (
+            <TouchableOpacity style={styles.commuteItem} onPress={() => handleEdit(item)}>
+              <Text style={styles.commuteName}>{item.name}</Text>
+              <Text style={styles.commuteTime}>{item.arrivalTime}</Text>
+            </TouchableOpacity>
+          )}
+          ListFooterComponent={() => (
+            <TouchableOpacity style={styles.addButton} onPress={handleAddNew}>
+              <Text style={styles.addButtonText}>+ Add New Commute for {DAYS[selectedDay]}</Text>
+            </TouchableOpacity>
+          )}
+          style={{ flex: 1 }}
+        />
       )}
+
+      <Modal visible={isModalVisible} animationType="slide" onRequestClose={() => setModalVisible(false)}>
+        <SafeAreaView style={theme.container} edges={['top', 'bottom']}>
+          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{flex: 1}}>
+            <ScrollView>
+              {editingCommute && <DaySettingForm commute={editingCommute} onUpdate={handleUpdateInModal} />}
+            </ScrollView>
+            <View style={styles.modalActions}>
+              {editingCommute && editingCommute.id && (
+                <TouchableOpacity style={[styles.deleteButton]} onPress={handleDeleteCommute}>
+                  <Text style={styles.deleteButtonText}>Delete</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity style={styles.cancelButton} onPress={() => setModalVisible(false)}>
+                <Text style={styles.cancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[theme.button, styles.doneButton]} onPress={handleSaveFromModal}>
+                <Text style={theme.buttonText}>Done</Text>
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
+      </Modal>
+
+      <TouchableOpacity style={[theme.button, styles.saveButton]} onPress={handleSaveAll}>
+        <Text style={theme.buttonText}>Save All Settings</Text>
+      </TouchableOpacity>
     </SafeAreaView>
   );
 };
+
+const styles = StyleSheet.create({
+  daySelectorContainer: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 20, paddingHorizontal: 10 },
+  dayButton: { padding: 10, borderRadius: 8 },
+  dayButtonSelected: { backgroundColor: colors.panel },
+  dayText: { color: colors.textMuted, fontSize: 16 },
+  dayTextSelected: { color: colors.text, fontWeight: 'bold' },
+  commuteItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.panel, padding: 20, borderRadius: 10, marginBottom: 10 },
+  commuteName: { color: colors.text, fontSize: 18, fontWeight: '600' },
+  commuteTime: { color: colors.textMuted, fontSize: 18 },
+  addButton: { backgroundColor: colors.panel, borderRadius: 10, padding: 20, alignItems: 'center', marginTop: 10 },
+  addButtonText: { color: colors.success, fontSize: 18, fontWeight: '600' },
+  saveButton: { marginHorizontal: 20, marginBottom: 10 },
+  modalActions: { flexDirection: 'row', justifyContent: 'space-around', margin: 20, alignItems: 'center' },
+  doneButton: { flex: 1, marginLeft: 10 },
+  cancelButton: { flex: 1, marginRight: 10, alignItems: 'center' },
+  cancelText: { color: colors.textMuted, fontSize: 18, fontWeight: '600' },
+  deleteButton: { flex: 1, marginRight: 10, alignItems: 'center' },
+  deleteButtonText: { color: colors.error, fontSize: 18, fontWeight: '600' },
+});

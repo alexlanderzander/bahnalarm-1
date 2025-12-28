@@ -1,3 +1,4 @@
+
 import type { JourneysResponse, Location } from '../types/ApiTypes';
 
 const API_BASE_URL = 'https://v6.db.transport.rest';
@@ -34,13 +35,30 @@ export const findJourneyByArrival = async (
   const url = new URL(`${API_BASE_URL}/journeys`);
   url.searchParams.append('from', fromId);
   url.searchParams.append('to', toId);
-  url.searchParams.append('arrival', arrival); // Use the arrival time
-  url.searchParams.append('results', '1');     // Get the latest journey arriving at or before the time
+  url.searchParams.append('arrival', arrival);
+  url.searchParams.append('results', '1');
+
+  // --- START DEBUG LOGGING ---
+  console.log("----------------------------------------");
+  console.log("[API DEBUG] Calling findJourneyByArrival with:");
+  console.log("[API DEBUG]   fromId:", fromId);
+  console.log("[API DEBUG]   toId:", toId);
+  console.log("[API DEBUG]   arrival:", arrival);
+  console.log("[API DEBUG]   Full URL:", url.toString());
+  // --- END DEBUG LOGGING ---
 
   try {
     const response = await fetch(url.toString());
-    if (!response.ok) throw new Error(`API error: ${response.status}`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[API DEBUG] API error response: ${response.status} ${response.statusText} - ${errorText}`);
+      throw new Error(`API error: ${response.status} ${response.statusText}`);
+    }
     const data: JourneysResponse = await response.json();
+    // --- START DEBUG LOGGING ---
+    console.log("[API DEBUG] API response data:", JSON.stringify(data, null, 2));
+    console.log("----------------------------------------");
+    // --- END DEBUG LOGGING ---
     return data;
   } catch (error) {
     console.error('[DbApiService] Failed to find journey:', error);

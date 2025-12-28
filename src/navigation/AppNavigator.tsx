@@ -1,9 +1,8 @@
-
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { DashboardScreen } from '../screens/DashboardScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
-import { colors } from '../styles/styles';
+import { colors } from '../styles/styles'; // <-- FIX: Import colors
 
 const Stack = createNativeStackNavigator();
 
@@ -12,20 +11,18 @@ export const AppNavigator = () => {
     <Stack.Navigator
       screenOptions={{
         headerStyle: {
-          backgroundColor: colors.primaryBackgroundStart, // For the header area
+          backgroundColor: colors.background, // <-- FIX: Use correct color
         },
         headerTintColor: colors.text,
         headerTitleStyle: {
           fontWeight: 'bold',
         },
-        headerTransparent: true, // Make header transparent
-        headerBlurEffect: 'dark', // iOS blur effect
       }}
     >
       <Stack.Screen
         name="Dashboard"
         component={DashboardScreen}
-        options={{ headerShown: false }} // Hide header on the main dashboard
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="Settings"
