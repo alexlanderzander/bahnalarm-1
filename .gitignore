@@ -3,37 +3,97 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+.pnpm-debug.log*
+
+# Package manager locks (optional - uncomment if you want to track only one)
+# package-lock.json
+# yarn.lock
 
 # Metro bundler
 .metro-cache/
+.metro-health-check*
+*.bundle
 
 # React Native
-/ios/build/
-/android/build/
-/android/app/build/
+.buckd/
+.last_build_configuration
 
-# Android
-.gradle/
-local.properties
-*.keystore
+# Hermes engine (cached, can be rebuilt)
+hermes-engine/
 
-# iOS
+# ==================== iOS ====================
+# Build outputs
+ios/build/
+ios/DerivedData/
+
+# CocoaPods
 ios/Pods/
+ios/Podfile.lock
+
+# Xcode user-specific files
+*.xcuserstate
 *.xcuserdatad/
-# We want to keep the project definition, but not user-specific settings
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
 *.xcworkspace/contents.xcworkspacedata
 
-# macOS
-.DS_Store
+# Xcode build products
+*.ipa
+*.dSYM.zip
+*.dSYM
 
-# IDEs / Editors
+# ==================== Android ====================
+# Build outputs
+android/build/
+android/app/build/
+android/.gradle/
+
+# Android local properties
+android/local.properties
+
+# Keystores (keep signing configs private)
+*.keystore
+*.jks
+!debug.keystore
+
+# Generated files
+android/app/src/main/assets/index.android.bundle
+android/app/src/main/res/drawable-*/
+
+# ==================== Bundle ====================
+.bundle/
+vendor/bundle/
+
+# ==================== macOS ====================
+.DS_Store
+*.swp
+*.swo
+*~
+
+# ==================== IDEs / Editors ====================
 .vscode/
 .idea/
+*.iml
+*.hprof
 
-# Logs
+# ==================== Logs ====================
 *.log
+logs/
 
-# Environment variables
+# ==================== Environment variables ====================
 .env
 .env.*
 !.env.example
+
+# ==================== Testing ====================
+coverage/
+.jest/
+
+# ==================== Temporary files ====================
+*.tmp
+*.temp
+tmp/
+temp/
+
+# ==================== Ruby (for CocoaPods) ====================
+Gemfile.lock

@@ -3,7 +3,7 @@ import { ScrollView, View, TouchableOpacity, Text, StyleSheet } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context'; // <-- FIX: Import from correct library
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { format, formatISO } from 'date-fns';
+import { format, formatISO, parseISO, subMinutes } from 'date-fns';
 
 import { theme, colors } from '../styles/styles';
 import { AlarmDisplay } from '../components/AlarmDisplay';
@@ -58,7 +58,20 @@ export const DashboardScreen = ({ navigation }) => {
           if (settings.startStation && settings.destinationStation) {
             console.log("[DASHBOARD DEBUG] Calling findJourneyByArrival...");
             const journeyData = await findJourneyByArrival(settings.startStation.id, settings.destinationStation.id, formatISO(commuteDate));
-            setJourney(journeyData.journeys[0] ?? null);
+            const firstJourney = journeyData.journeys[0] ?? null;
+            setJourney(firstJourney);
+
+            // FIX: Update alarm time from live journey data
+            if (firstJourney && firstJourney.legs[0]) {
+              const leg = firstJourney.legs[0];
+              const plannedDeparture = parseISO(leg.plannedDeparture);
+              const delaySeconds = leg.departureDelay ?? 0;
+              const actualDeparture = new Date(plannedDeparture.getTime() + delaySeconds * 1000);
+              const newAlarmTime = subMinutes(actualDeparture, settings.preparationTime);
+              setAlarmTime(formatISO(newAlarmTime));
+              // Also persist the updated alarm time
+              await AsyncStorage.setItem(ALARM_TIME_KEY, formatISO(newAlarmTime));
+            }
           } else {
             console.log("[DASHBOARD DEBUG] Skipping findJourneyByArrival: start/destination station missing.");
           }
@@ -81,19 +94,19 @@ export const DashboardScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={theme.container} edges={['top', 'bottom']}> {/* <-- FIX: Use edges prop */}
-      <ScrollView 
+      <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContentContainer}
       >
-        <AlarmDisplay alarmTime={alarmTime} commuteName={nextCommuteInfo?.name} commuteDay={nextCommuteInfo?.day} />
+        <AlarmDisplay alarmTime={alarmTime} commuteName={nextCommuteInfo?.name ?? null} commuteDay={nextCommuteInfo?.day ?? null} />
         <View style={{ height: 20 }} />
         <StatusCard journey={journey} isLoading={isLoading} onRefresh={loadData} />
         <AdjustmentHistory history={history} />
       </ScrollView>
       <View style={styles.footer}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.settingsButton}
-          onPress={() => navigation.navigate('Settings')} 
+          onPress={() => navigation.navigate('Settings')}
         >
           <Text style={styles.settingsButtonText}>Settings</Text>
         </TouchableOpacity>

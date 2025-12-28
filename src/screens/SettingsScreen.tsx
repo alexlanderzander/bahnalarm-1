@@ -1,6 +1,6 @@
-
 import React, { useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, Alert, Modal, FlatList, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Modal, FlatList, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { formatISO, parseISO, subMinutes } from 'date-fns';
@@ -42,13 +42,14 @@ export const SettingsScreen = ({ navigation }) => {
           const storedData = JSON.parse(settingsString);
           if (storedData && typeof storedData === 'object') {
             for (let i = 0; i < 7; i++) {
+              const dayIndex = i as 0 | 1 | 2 | 3 | 4 | 5 | 6;
               const dayData = storedData[String(i)];
               if (dayData) {
                 if (Array.isArray(dayData)) {
-                  newWeekSettings[i] = dayData.map(item => ({ ...defaultCommute, ...item, id: item.id || uuidv4() }));
+                  newWeekSettings[dayIndex] = dayData.map(item => ({ ...defaultCommute, ...item, id: item.id || uuidv4() }));
                 } else if (typeof dayData === 'object') {
                   console.log(`Migrating old data format for day ${i}`);
-                  newWeekSettings[i] = [{ ...defaultCommute, ...dayData, id: dayData.id || uuidv4() }];
+                  newWeekSettings[dayIndex] = [{ ...defaultCommute, ...dayData, id: dayData.id || uuidv4() }];
                 }
               }
             }
@@ -106,7 +107,8 @@ export const SettingsScreen = ({ navigation }) => {
       `Are you sure you want to delete "${editingCommute.name}"?`,
       [
         { text: "Cancel", style: "cancel" },
-        { text: "Delete", style: "destructive", onPress: async () => {
+        {
+          text: "Delete", style: "destructive", onPress: async () => {
             setWeekSettings(prevWeekSettings => {
               const updatedDayCommutes = (prevWeekSettings[selectedDay] || []).filter(
                 c => c.id !== editingCommute.id
@@ -131,7 +133,7 @@ export const SettingsScreen = ({ navigation }) => {
 
     try {
       await AsyncStorage.setItem(WEEK_SETTINGS_KEY, JSON.stringify(weekSettings));
-      
+
       const nextCommute = findNextActiveCommute(weekSettings);
       if (nextCommute) {
         // --- START DEBUG LOGGING ---
@@ -140,7 +142,7 @@ export const SettingsScreen = ({ navigation }) => {
         console.log("[SETTINGS DEBUG]   destinationStation:", nextCommute.settings.destinationStation?.name);
         // --- END DEBUG LOGGING ---
 
-        if(nextCommute.settings.startStation && nextCommute.settings.destinationStation){
+        if (nextCommute.settings.startStation && nextCommute.settings.destinationStation) {
           console.log("[SETTINGS DEBUG] Calling findJourneyByArrival for initial alarm calc...");
           const journeyResponse = await findJourneyByArrival(nextCommute.settings.startStation.id, nextCommute.settings.destinationStation.id, formatISO(nextCommute.commuteDate));
           const leg = journeyResponse.journeys[0]?.legs[0];
@@ -156,14 +158,15 @@ export const SettingsScreen = ({ navigation }) => {
         console.log("[SETTINGS DEBUG] No nextCommute found for initial alarm calc.");
       }
 
-      await AsyncStorage.setItem(ADJUSTMENT_HISTORY_KEY, JSON.stringify([]));
+      // FIX: Don't clear history on save - preserve adjustment history
+      // await AsyncStorage.setItem(ADJUSTMENT_HISTORY_KEY, JSON.stringify([]));
 
       Alert.alert('Settings Saved', 'Your weekly commute settings have been saved.');
       navigation.goBack();
 
-    } catch (error) { 
+    } catch (error) {
       console.error('[SettingsScreen] Error saving settings:', error);
-      Alert.alert('Error', 'Failed to save settings.'); 
+      Alert.alert('Error', 'Failed to save settings.');
     } finally {
       console.log("[SETTINGS DEBUG] handleSaveAll finished.");
       console.log("----------------------------------------");
@@ -179,7 +182,7 @@ export const SettingsScreen = ({ navigation }) => {
           </TouchableOpacity>
         ))}
       </View>
-      
+
       {!isLoading && (
         <FlatList
           data={weekSettings[selectedDay] || []}
@@ -201,7 +204,7 @@ export const SettingsScreen = ({ navigation }) => {
 
       <Modal visible={isModalVisible} animationType="slide" onRequestClose={() => setModalVisible(false)}>
         <SafeAreaView style={theme.container} edges={['top', 'bottom']}>
-          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{flex: 1}}>
+          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
             <ScrollView>
               {editingCommute && <DaySettingForm commute={editingCommute} onUpdate={handleUpdateInModal} />}
             </ScrollView>

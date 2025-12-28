@@ -2,7 +2,7 @@
 // Based on the v6.db.transport.rest API documentation
 
 export interface Location {
-  type: 'location';
+  type: 'location' | 'stop' | 'station';
   id: string;
   name: string;
 }

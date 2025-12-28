@@ -36,7 +36,7 @@ export const findJourneyByArrival = async (
   url.searchParams.append('from', fromId);
   url.searchParams.append('to', toId);
   url.searchParams.append('arrival', arrival);
-  url.searchParams.append('results', '1');
+  url.searchParams.append('results', '3'); // Request 3 journeys for fallback
 
   // --- START DEBUG LOGGING ---
   console.log("----------------------------------------");

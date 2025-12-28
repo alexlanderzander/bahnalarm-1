@@ -24,16 +24,25 @@ export const DaySettingForm: React.FC<CommuteFormProps> = ({ commute, onUpdate }
   const [loadingStart, setLoadingStart] = useState(false);
   const [loadingDest, setLoadingDest] = useState(false);
   const [activeInput, setActiveInput] = useState<'start' | 'dest' | null>(null);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [timeError, setTimeError] = useState<string | null>(null);
 
   const isEnabled = commute.enabled;
 
   const search = async (query: string, setResults: (res: Location[]) => void, setLoading: (l: boolean) => void) => {
-    if (query.length < 2) { setResults([]); return; }
+    if (query.length < 2) { setResults([]); setSearchError(null); return; }
     setLoading(true);
+    setSearchError(null);
     try {
       const results = await searchStations(query);
       setResults(results);
-    } catch (error) { console.error(error); }
+      if (results.length === 0) {
+        setSearchError('No stations found');
+      }
+    } catch (error) {
+      console.error(error);
+      setSearchError('Failed to search stations. Check your connection.');
+    }
     finally { setLoading(false); }
   };
 
@@ -109,10 +118,27 @@ export const DaySettingForm: React.FC<CommuteFormProps> = ({ commute, onUpdate }
       <View style={{ opacity: isEnabled ? 1 : 0.5 }}>
         {renderStationSelector('Start Station', commute.startStation, startQuery, setStartQuery, (s) => onUpdate({ startStation: s }), startResults, setStartResults, loadingStart, 'start')}
         {renderStationSelector('Destination Station', commute.destinationStation, destQuery, setDestQuery, (s) => onUpdate({ destinationStation: s }), destResults, setDestResults, loadingDest, 'dest')}
-        
+
         <View style={styles.inputGroup}>
           <Text style={theme.label}>Required Arrival Time</Text>
-          <TextInput style={theme.input} value={commute.arrivalTime} onChangeText={(val) => onUpdate({ arrivalTime: val })} editable={isEnabled} />
+          <TextInput
+            style={[theme.input, timeError ? styles.inputError : null]}
+            value={commute.arrivalTime}
+            onChangeText={(val) => {
+              // Validate HH:mm format
+              const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+              if (val.length > 0 && !timeRegex.test(val) && val.length === 5) {
+                setTimeError('Use HH:mm format (e.g., 09:00)');
+              } else {
+                setTimeError(null);
+              }
+              onUpdate({ arrivalTime: val });
+            }}
+            placeholder="09:00"
+            keyboardType="numbers-and-punctuation"
+            editable={isEnabled}
+          />
+          {timeError && <Text style={styles.errorText}>{timeError}</Text>}
         </View>
         <View style={styles.inputGroup}>
           <Text style={theme.label}>Preparation Time (in minutes)</Text>
@@ -124,7 +150,7 @@ export const DaySettingForm: React.FC<CommuteFormProps> = ({ commute, onUpdate }
 };
 
 const debounce = <F extends (...args: any[]) => any>(func: F, delay: number) => {
-  let timeoutId: NodeJS.Timeout | null = null;
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
   return (...args: Parameters<F>) => {
     if (timeoutId) clearTimeout(timeoutId);
     timeoutId = setTimeout(() => { func(...args); }, delay);
@@ -138,4 +164,6 @@ const styles = StyleSheet.create({
   resultsContainer: { backgroundColor: colors.panel, borderColor: colors.border, borderWidth: 1, borderRadius: 10, marginTop: 5, maxHeight: 150 },
   resultItem: { padding: 15, borderBottomColor: colors.border, borderBottomWidth: 1 },
   loader: { position: 'absolute', right: 15, top: 45 },
+  inputError: { borderColor: colors.error, borderWidth: 1 },
+  errorText: { color: colors.error, fontSize: 12, marginTop: 5 },
 });
