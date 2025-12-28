@@ -52,8 +52,8 @@ We may update this policy. Changes will be reflected in the "Last Updated" date.
 
 ## Contact
 For questions about this privacy policy, contact:
-- Email: [your-email@example.com]
-- GitHub: [your-github-url]
+- Email: [evinsta9@gmail.com]
+- GitHub: [https://github.com/alexlanderzander]
 
 ---
 

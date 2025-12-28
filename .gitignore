@@ -26,6 +26,9 @@ hermes-engine/
 ios/build/
 ios/DerivedData/
 
+# Xcode environment (machine-specific)
+ios/.xcode.env.local
+
 # CocoaPods
 ios/Pods/
 ios/Podfile.lock
