@@ -5,24 +5,6 @@
    <BuildAction
       parallelizeBuildables = "YES"
       buildImplicitDependencies = "YES">
-      <PreActions>
-         <ExecutionAction
-            ActionType = "Xcode.IDEStandardExecutionActionsCore.ExecutionActionType.ShellScriptAction">
-            <ActionContent
-               title = "Run Script"
-               scriptText = "export NVM_DIR=&quot;$HOME/.nvm&quot;&#10;[ -s &quot;$NVM_DIR/nvm.sh&quot; ] &amp;&amp; \. &quot;$NVM_DIR/nvm.sh&quot;&#10;nvm use 25.2.0&#10;&#10;# Check if Metro is already running&#10;if ! lsof -i:8081 &gt; /dev/null 2&gt;&amp;1; then&#10;  osascript -e &apos;tell app &quot;Terminal&quot; to do script &quot;source ~/.nvm/nvm.sh &amp;&amp; nvm use 25.2.0 &amp;&amp; cd /Users/alexander.vonhohnhorst/BahnAlarm &amp;&amp; npx react-native start&quot;&apos;&#10;fi&#10;">
-               <EnvironmentBuildable>
-                  <BuildableReference
-                     BuildableIdentifier = "primary"
-                     BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-                     BuildableName = "BahnAlarm.app"
-                     BlueprintName = "BahnAlarm"
-                     ReferencedContainer = "container:BahnAlarm.xcodeproj">
-                  </BuildableReference>
-               </EnvironmentBuildable>
-            </ActionContent>
-         </ExecutionAction>
-      </PreActions>
       <BuildActionEntries>
          <BuildActionEntry
             buildForTesting = "YES"
