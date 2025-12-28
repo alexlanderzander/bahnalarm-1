@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { format, formatISO } from 'date-fns';
+import { format, formatISO, isPast } from 'date-fns';
 
 import { theme, colors } from '../styles/styles';
 import { AlarmDisplay } from '../components/AlarmDisplay';
@@ -18,15 +18,15 @@ import { selectOptimalJourney, getFirstLeg, DEFAULT_SAFETY_BUFFER } from '../uti
 import { scheduleAlarmNotification } from '../services/BackgroundUpdateService';
 import { scheduleAlarm as scheduleNativeAlarm, isAlarmKitAvailable } from '../services/AlarmKitService';
 import { logger } from '../utils/logger';
+import { COMMUTE_SETTINGS_KEY } from '../types/SettingsTypes';
+import type { CommuteSettings } from '../types/SettingsTypes';
 import type { Journey } from '../types/ApiTypes';
-import type { WeekSettings } from '../types/SettingsTypes';
 import type { AlarmAdjustment } from '../types/AlarmAdjustment';
 
 const log = logger.dashboard;
 
 const ALARM_TIME_KEY = '@BahnAlarm:alarmTime';
 const ADJUSTMENT_HISTORY_KEY = '@BahnAlarm:adjustmentHistory';
-const WEEK_SETTINGS_KEY = '@BahnAlarm:weekSettings';
 
 interface Props {
   navigation: NativeStackNavigationProp<any>;
@@ -48,7 +48,7 @@ export const DashboardScreen = ({ navigation }: Props) => {
     setError(null);
 
     try {
-      const settingsString = await AsyncStorage.getItem(WEEK_SETTINGS_KEY);
+      const settingsString = await AsyncStorage.getItem(COMMUTE_SETTINGS_KEY);
       const alarmTimeString = await AsyncStorage.getItem(ALARM_TIME_KEY);
       const historyString = await AsyncStorage.getItem(ADJUSTMENT_HISTORY_KEY);
 
@@ -56,18 +56,16 @@ export const DashboardScreen = ({ navigation }: Props) => {
       setHistory(historyString ? JSON.parse(historyString) : []);
 
       if (settingsString) {
-        const weekSettings: WeekSettings = JSON.parse(settingsString);
+        const commutes: CommuteSettings = JSON.parse(settingsString);
 
-        // Check if any day has commutes configured
-        const hasAnyCommutes = Object.values(weekSettings).some(
-          (day) => Array.isArray(day) && day.length > 0 && day.some(c => c.enabled)
-        );
+        // Check if any commutes exist and are enabled
+        const hasAnyCommutes = commutes.length > 0 && commutes.some(c => c.enabled);
         setHasCommutes(hasAnyCommutes);
 
-        const nextCommute = findNextActiveCommute(weekSettings);
+        const nextCommute = findNextActiveCommute(commutes);
 
         if (nextCommute) {
-          const { commuteDate, settings } = nextCommute;
+          const { commuteDate, commute: settings } = nextCommute;
           setNextCommuteInfo({ name: settings.name, day: format(commuteDate, 'eeee') });
 
           if (settings.startStation && settings.destinationStation) {
@@ -91,20 +89,26 @@ export const DashboardScreen = ({ navigation }: Props) => {
             if (selection.journey && selection.alarmTime) {
               const leg = getFirstLeg(selection.journey);
 
-              log.debug(`Selected: ${selection.reasoning}`);
-              setAlarmTime(formatISO(selection.alarmTime));
-              await AsyncStorage.setItem(ALARM_TIME_KEY, formatISO(selection.alarmTime));
+              // Only schedule if alarm time is in the future
+              if (!isPast(selection.alarmTime)) {
+                log.debug(`Selected: ${selection.reasoning}`);
+                setAlarmTime(formatISO(selection.alarmTime));
+                await AsyncStorage.setItem(ALARM_TIME_KEY, formatISO(selection.alarmTime));
 
-              if (leg) {
-                await scheduleAlarmNotification(selection.alarmTime, leg);
+                if (leg) {
+                  await scheduleAlarmNotification(selection.alarmTime, leg);
 
-                const alarmKitAvailable = await isAlarmKitAvailable();
-                if (alarmKitAvailable) {
-                  const trainName = leg.line?.name ?? 'Your train';
-                  const delaySeconds = leg.departureDelay ?? 0;
-                  const delayInfo = delaySeconds > 0 ? `+${Math.round(delaySeconds / 60)}min delay` : 'On time';
-                  await scheduleNativeAlarm(selection.alarmTime, `Time for ${trainName}`, delayInfo);
+                  const alarmKitAvailable = await isAlarmKitAvailable();
+                  if (alarmKitAvailable) {
+                    const trainName = leg.line?.name ?? 'Your train';
+                    const delaySeconds = leg.departureDelay ?? 0;
+                    const delayInfo = delaySeconds > 0 ? `+${Math.round(delaySeconds / 60)}min delay` : 'On time';
+                    await scheduleNativeAlarm(selection.alarmTime, `Time for ${trainName}`, delayInfo);
+                  }
                 }
+              } else {
+                // Alarm would be in the past, show next occurrence info
+                setAlarmTime(null);
               }
             }
           }
@@ -130,9 +134,9 @@ export const DashboardScreen = ({ navigation }: Props) => {
       <SafeAreaView style={theme.container} edges={['top', 'bottom']}>
         <EmptyState
           emoji="🚂"
-          title="No commutes set up"
-          message="Add your first commute to get smart wake-up alarms based on live train schedules."
-          actionLabel="Add Commute"
+          title="No alarms set up"
+          message="Add your first alarm to get smart wake-up times based on live train schedules."
+          actionLabel="Add Alarm"
           onAction={goToSettings}
         />
       </SafeAreaView>

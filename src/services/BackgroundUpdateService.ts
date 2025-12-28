@@ -7,7 +7,8 @@ import notifee, { TimestampTrigger, TriggerType } from '@notifee/react-native';
 import { findJourneyByArrival } from '../api/DbApiService';
 import { findNextActiveCommute } from '../utils/timeHelper';
 import { logger } from '../utils/logger';
-import type { WeekSettings } from '../types/SettingsTypes';
+import { COMMUTE_SETTINGS_KEY } from '../types/SettingsTypes';
+import type { CommuteSettings } from '../types/SettingsTypes';
 import type { AlarmAdjustment } from '../types/AlarmAdjustment';
 
 const log = logger.notification;
@@ -15,7 +16,6 @@ const bgLog = logger.background;
 
 const ALARM_TIME_KEY = '@BahnAlarm:alarmTime';
 const ADJUSTMENT_HISTORY_KEY = '@BahnAlarm:adjustmentHistory';
-const WEEK_SETTINGS_KEY = '@BahnAlarm:weekSettings';
 const ALARM_NOTIFICATION_ID = 'bahn-alarm-trigger';
 
 /**
@@ -81,21 +81,21 @@ const backgroundTask = async (taskId: string) => {
   bgLog.debug('Background task starting');
 
   try {
-    const settingsString = await AsyncStorage.getItem(WEEK_SETTINGS_KEY);
+    const settingsString = await AsyncStorage.getItem(COMMUTE_SETTINGS_KEY);
     if (!settingsString) {
       BackgroundFetch.finish(taskId);
       return;
     }
 
-    const weekSettings: WeekSettings = JSON.parse(settingsString);
-    const nextCommute = findNextActiveCommute(weekSettings);
+    const commutes: CommuteSettings = JSON.parse(settingsString);
+    const nextCommute = findNextActiveCommute(commutes);
 
     if (!nextCommute) {
       BackgroundFetch.finish(taskId);
       return;
     }
 
-    const { commuteDate, settings } = nextCommute;
+    const { commuteDate, commute: settings } = nextCommute;
     const { startStation, destinationStation, preparationTime } = settings;
 
     if (!startStation || !destinationStation) {
