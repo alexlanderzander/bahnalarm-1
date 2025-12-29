@@ -48,17 +48,21 @@ alarm,train,commute,delay,deutsche bahn,db,sleep,wake up,schedule,transit,rail,p
 4+
 
 ## Copyright
-© 2025 [Your Name/Company]
+© 2025 Alexander von Hohnhorst
 
 ## Support URL
-[Your support URL]
+https://alexlanderzander.github.io/neverbelate-website/
 
 ## Privacy Policy URL
-[Your privacy policy URL - host PRIVACY_POLICY.md online]
+https://alexlanderzander.github.io/neverbelate-website/privacy.html
+
+## Marketing URL (Optional)
+https://alexlanderzander.github.io/neverbelate-website/
 
 ---
 
 ## App Store Screenshots Needed
+
 
 ### iPhone 6.7" (iPhone 16 Pro Max, 15 Pro Max)
 1. **Dashboard** - Main screen with alarm time displayed
