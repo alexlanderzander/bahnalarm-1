@@ -1,0 +1,172 @@
+Using device: mps
+Loading REAL data from training_data...
+Found 429 NPZ files in training_data
+Loaded 429 valid samples
+Dataset: 429 samples
+Creating hybrid model...
+Model parameters: 2,540,279
+Starting HNSF training for 100 epochs...
+Epoch 1/100 - Loss: 0.0615 (mag: 0.0611, struct: 0.0038) - Time: 21.5s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 2/100 - Loss: 0.0176 (mag: 0.0174, struct: 0.0023) - Time: 21.0s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 3/100 - Loss: 0.0113 (mag: 0.0111, struct: 0.0023) - Time: 19.3s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 4/100 - Loss: 0.0062 (mag: 0.0060, struct: 0.0023) - Time: 19.5s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 5/100 - Loss: 0.0038 (mag: 0.0035, struct: 0.0023) - Time: 20.0s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 6/100 - Loss: 0.0026 (mag: 0.0024, struct: 0.0023) - Time: 19.9s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 7/100 - Loss: 0.0020 (mag: 0.0018, struct: 0.0023) - Time: 20.0s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 8/100 - Loss: 0.0017 (mag: 0.0014, struct: 0.0023) - Time: 20.1s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 9/100 - Loss: 0.0014 (mag: 0.0011, struct: 0.0022) - Time: 20.0s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 10/100 - Loss: 0.0012 (mag: 0.0010, struct: 0.0022) - Time: 20.2s
+Saved: naf_checkpoints/hybrid_epoch_10.pt
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 11/100 - Loss: 0.0010 (mag: 0.0008, struct: 0.0022) - Time: 20.2s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 12/100 - Loss: 0.0009 (mag: 0.0007, struct: 0.0022) - Time: 20.9s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 13/100 - Loss: 0.0008 (mag: 0.0006, struct: 0.0022) - Time: 20.9s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 14/100 - Loss: 0.0008 (mag: 0.0006, struct: 0.0022) - Time: 20.5s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 15/100 - Loss: 0.0007 (mag: 0.0005, struct: 0.0021) - Time: 21.5s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 16/100 - Loss: 0.0007 (mag: 0.0005, struct: 0.0021) - Time: 20.4s
+Epoch 17/100 - Loss: 0.0006 (mag: 0.0004, struct: 0.0020) - Time: 20.0s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 18/100 - Loss: 0.0006 (mag: 0.0004, struct: 0.0020) - Time: 19.8s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 19/100 - Loss: 0.0005 (mag: 0.0003, struct: 0.0018) - Time: 19.9s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 20/100 - Loss: 0.0004 (mag: 0.0003, struct: 0.0015) - Time: 20.1s
+Saved: naf_checkpoints/hybrid_epoch_20.pt
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 21/100 - Loss: 0.0004 (mag: 0.0003, struct: 0.0013) - Time: 19.8s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 22/100 - Loss: 0.0004 (mag: 0.0003, struct: 0.0010) - Time: 20.3s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 23/100 - Loss: 0.0004 (mag: 0.0003, struct: 0.0010) - Time: 20.3s
+Epoch 24/100 - Loss: 0.0003 (mag: 0.0002, struct: 0.0008) - Time: 20.2s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 25/100 - Loss: 0.0003 (mag: 0.0002, struct: 0.0007) - Time: 20.0s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 26/100 - Loss: 0.0003 (mag: 0.0002, struct: 0.0006) - Time: 20.3s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 27/100 - Loss: 0.0002 (mag: 0.0002, struct: 0.0005) - Time: 20.0s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 28/100 - Loss: 0.0002 (mag: 0.0002, struct: 0.0005) - Time: 20.4s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 29/100 - Loss: 0.0002 (mag: 0.0002, struct: 0.0005) - Time: 20.0s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 30/100 - Loss: 0.0002 (mag: 0.0002, struct: 0.0005) - Time: 20.5s
+Saved: naf_checkpoints/hybrid_epoch_30.pt
+Epoch 31/100 - Loss: 0.0003 (mag: 0.0003, struct: 0.0005) - Time: 19.9s
+Epoch 32/100 - Loss: 0.0003 (mag: 0.0002, struct: 0.0004) - Time: 20.3s
+Epoch 33/100 - Loss: 0.0004 (mag: 0.0004, struct: 0.0004) - Time: 20.2s
+Epoch 34/100 - Loss: 0.0002 (mag: 0.0001, struct: 0.0003) - Time: 20.1s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 35/100 - Loss: 0.0001 (mag: 0.0001, struct: 0.0003) - Time: 20.1s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 36/100 - Loss: 0.0001 (mag: 0.0001, struct: 0.0003) - Time: 20.4s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 37/100 - Loss: 0.0001 (mag: 0.0001, struct: 0.0003) - Time: 20.0s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 38/100 - Loss: 0.0001 (mag: 0.0001, struct: 0.0002) - Time: 20.0s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 39/100 - Loss: 0.0001 (mag: 0.0001, struct: 0.0002) - Time: 20.0s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 40/100 - Loss: 0.0001 (mag: 0.0001, struct: 0.0002) - Time: 20.1s
+Saved: naf_checkpoints/hybrid_epoch_40.pt
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 41/100 - Loss: 0.0001 (mag: 0.0001, struct: 0.0002) - Time: 20.4s
+Epoch 42/100 - Loss: 0.0001 (mag: 0.0001, struct: 0.0003) - Time: 20.2s
+Epoch 43/100 - Loss: 0.0001 (mag: 0.0001, struct: 0.0003) - Time: 21.1s
+Epoch 44/100 - Loss: 0.0001 (mag: 0.0001, struct: 0.0002) - Time: 24.6s
+Epoch 45/100 - Loss: 0.0001 (mag: 0.0001, struct: 0.0002) - Time: 23.4s
+Epoch 46/100 - Loss: 0.0001 (mag: 0.0001, struct: 0.0002) - Time: 23.8s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 47/100 - Loss: 0.0001 (mag: 0.0001, struct: 0.0002) - Time: 23.4s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 48/100 - Loss: 0.0001 (mag: 0.0001, struct: 0.0002) - Time: 23.6s
+Epoch 49/100 - Loss: 0.0001 (mag: 0.0001, struct: 0.0001) - Time: 24.2s
+Epoch 50/100 - Loss: 0.0001 (mag: 0.0001, struct: 0.0002) - Time: 23.2s
+Saved: naf_checkpoints/hybrid_epoch_50.pt
+Epoch 51/100 - Loss: 0.0001 (mag: 0.0001, struct: 0.0002) - Time: 23.7s
+Epoch 52/100 - Loss: 0.0001 (mag: 0.0001, struct: 0.0003) - Time: 26.0s
+Epoch 53/100 - Loss: 0.0001 (mag: 0.0001, struct: 0.0002) - Time: 24.0s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 54/100 - Loss: 0.0001 (mag: 0.0001, struct: 0.0001) - Time: 25.1s
+Epoch 55/100 - Loss: 0.0003 (mag: 0.0003, struct: 0.0002) - Time: 24.0s
+Epoch 56/100 - Loss: 0.0001 (mag: 0.0001, struct: 0.0002) - Time: 29.4s
+Epoch 57/100 - Loss: 0.0001 (mag: 0.0001, struct: 0.0001) - Time: 24.9s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 58/100 - Loss: 0.0001 (mag: 0.0001, struct: 0.0001) - Time: 24.4s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 59/100 - Loss: 0.0001 (mag: 0.0000, struct: 0.0001) - Time: 25.4s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 60/100 - Loss: 0.0000 (mag: 0.0000, struct: 0.0001) - Time: 22.9s
+Saved: naf_checkpoints/hybrid_epoch_60.pt
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 61/100 - Loss: 0.0000 (mag: 0.0000, struct: 0.0001) - Time: 17.7s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 62/100 - Loss: 0.0001 (mag: 0.0000, struct: 0.0001) - Time: 17.7s
+Epoch 63/100 - Loss: 0.0001 (mag: 0.0000, struct: 0.0001) - Time: 17.7s
+Epoch 64/100 - Loss: 0.0000 (mag: 0.0000, struct: 0.0001) - Time: 17.7s
+Epoch 65/100 - Loss: 0.0001 (mag: 0.0001, struct: 0.0001) - Time: 17.7s
+Epoch 66/100 - Loss: 0.0001 (mag: 0.0000, struct: 0.0001) - Time: 17.7s
+Epoch 67/100 - Loss: 0.0001 (mag: 0.0001, struct: 0.0002) - Time: 17.7s
+Epoch 68/100 - Loss: 0.0001 (mag: 0.0001, struct: 0.0001) - Time: 17.7s
+Epoch 69/100 - Loss: 0.0001 (mag: 0.0000, struct: 0.0001) - Time: 17.7s
+Epoch 70/100 - Loss: 0.0001 (mag: 0.0000, struct: 0.0001) - Time: 17.7s
+Saved: naf_checkpoints/hybrid_epoch_70.pt
+Epoch 71/100 - Loss: 0.0000 (mag: 0.0000, struct: 0.0001) - Time: 17.7s
+Epoch 72/100 - Loss: 0.0000 (mag: 0.0000, struct: 0.0001) - Time: 17.7s
+Epoch 73/100 - Loss: 0.0000 (mag: 0.0000, struct: 0.0001) - Time: 17.7s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 74/100 - Loss: 0.0000 (mag: 0.0000, struct: 0.0001) - Time: 17.7s
+Epoch 75/100 - Loss: 0.0001 (mag: 0.0001, struct: 0.0002) - Time: 17.7s
+Epoch 76/100 - Loss: 0.0002 (mag: 0.0002, struct: 0.0002) - Time: 17.7s
+Epoch 77/100 - Loss: 0.0001 (mag: 0.0000, struct: 0.0001) - Time: 17.7s
+Epoch 78/100 - Loss: 0.0000 (mag: 0.0000, struct: 0.0001) - Time: 17.7s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 79/100 - Loss: 0.0000 (mag: 0.0000, struct: 0.0001) - Time: 17.7s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 80/100 - Loss: 0.0000 (mag: 0.0000, struct: 0.0001) - Time: 17.7s
+Saved: naf_checkpoints/hybrid_epoch_80.pt
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 81/100 - Loss: 0.0000 (mag: 0.0000, struct: 0.0001) - Time: 17.7s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 82/100 - Loss: 0.0000 (mag: 0.0000, struct: 0.0001) - Time: 17.7s
+Epoch 83/100 - Loss: 0.0000 (mag: 0.0000, struct: 0.0001) - Time: 17.7s
+Epoch 84/100 - Loss: 0.0001 (mag: 0.0001, struct: 0.0001) - Time: 17.7s
+Epoch 85/100 - Loss: 0.0001 (mag: 0.0000, struct: 0.0001) - Time: 17.7s
+Epoch 86/100 - Loss: 0.0001 (mag: 0.0001, struct: 0.0001) - Time: 17.6s
+Epoch 87/100 - Loss: 0.0001 (mag: 0.0001, struct: 0.0001) - Time: 17.6s
+Epoch 88/100 - Loss: 0.0002 (mag: 0.0002, struct: 0.0001) - Time: 17.7s
+Epoch 89/100 - Loss: 0.0001 (mag: 0.0000, struct: 0.0001) - Time: 17.7s
+Epoch 90/100 - Loss: 0.0000 (mag: 0.0000, struct: 0.0001) - Time: 17.7s
+Saved: naf_checkpoints/hybrid_epoch_90.pt
+Epoch 91/100 - Loss: 0.0000 (mag: 0.0000, struct: 0.0001) - Time: 17.7s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 92/100 - Loss: 0.0000 (mag: 0.0000, struct: 0.0001) - Time: 17.9s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 93/100 - Loss: 0.0000 (mag: 0.0000, struct: 0.0001) - Time: 17.9s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 94/100 - Loss: 0.0000 (mag: 0.0000, struct: 0.0001) - Time: 17.7s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 95/100 - Loss: 0.0000 (mag: 0.0000, struct: 0.0001) - Time: 17.7s
+Epoch 96/100 - Loss: 0.0000 (mag: 0.0000, struct: 0.0001) - Time: 17.7s
+Epoch 97/100 - Loss: 0.0000 (mag: 0.0000, struct: 0.0001) - Time: 17.7s
+Epoch 98/100 - Loss: 0.0000 (mag: 0.0000, struct: 0.0001) - Time: 17.7s
+Saved: naf_checkpoints/hybrid_best.pt
+Epoch 99/100 - Loss: 0.0000 (mag: 0.0000, struct: 0.0001) - Time: 17.7s
+Epoch 100/100 - Loss: 0.0001 (mag: 0.0000, struct: 0.0001) - Time: 17.7s
+Saved: naf_checkpoints/hybrid_epoch_100.pt
+Training complete in 33.5 minutes
+Hybrid training complete!

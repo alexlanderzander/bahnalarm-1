@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HNSF Spatial Mapper</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #000;
+            color: #fff;
+            overflow: hidden;
+        }
+
+        #canvas {
+            display: block;
+        }
+
+        #overlay {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(0, 255, 136, 0.3);
+            font-size: 12px;
+            min-width: 180px;
+        }
+
+        h1 {
+            font-size: 16px;
+            margin-bottom: 10px;
+            color: #00ff88;
+        }
+
+        .stat {
+            margin: 4px 0;
+            color: #888;
+        }
+
+        .stat span {
+            color: #fff;
+        }
+
+        #status {
+            padding: 5px 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            font-size: 11px;
+        }
+
+        .connected {
+            background: rgba(0, 255, 136, 0.2);
+            color: #00ff88;
+        }
+
+        .disconnected {
+            background: rgba(255, 0, 0, 0.2);
+            color: #ff4444;
+        }
+
+        .waiting {
+            background: rgba(255, 170, 0, 0.2);
+            color: #ffaa00;
+        }
+
+        #instructions {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 11px;
+            color: #666;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        #clearBtn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 100, 100, 0.3);
+            border: 1px solid rgba(255, 100, 100, 0.5);
+            color: #ff6666;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        #clearBtn:hover {
+            background: rgba(255, 100, 100, 0.5);
+        }
+
+        .structure-values {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .structure-values .label {
+            color: #888;
+            font-size: 10px;
+        }
+
+        .structure-values .vals {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 5px;
+            margin-top: 5px;
+        }
+
+        .structure-values .val {
+            background: rgba(0, 255, 136, 0.1);
+            padding: 3px;
+            text-align: center;
+            border-radius: 4px;
+            font-size: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="canvas"></canvas>
+
+    <div id="overlay">
+        <h1>🗺️ AI Spatial Mapper</h1>
+        <div id="status" class="disconnected">Connecting...</div>
+        <div class="stat">Wall Points: <span id="pointCount">0</span></div>
+        <div class="stat">Position: <span id="position">-</span></div>
+        <div class="stat">Orientation: <span id="orientation">-</span></div>
+        <div class="stat">Distance: <span id="distance">0.00</span> m</div>
+        <div class="stat">Updates: <span id="updates">0</span>/s</div>
+        <div class="structure-values">
+            <div class="label">Wall Distances (F/R/B/L):</div>
+            <div class="vals">
+                <div class="val" id="struct0">-</div>
+                <div class="val" id="struct1">-</div>
+                <div class="val" id="struct2">-</div>
+                <div class="val" id="struct3">-</div>
+            </div>
+        </div>
+    </div>
+
+    <button id="clearBtn">🗑️ Clear Map</button>
+
+    <div id="instructions">
+        🎯 Move phone to map the space<br>
+        🔵 Blue = Phone position<br>
+        🟢 Green trail = Movement path<br>
+        🔴🟠 Points = AI-predicted walls
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <script>
+        // =====================
+        // CONFIG
+        // =====================
+        const WS_URL = `ws://${window.location.hostname}:${window.location.port || 80}/api/spatial/viewer`;
+        const MAX_TRAIL_POINTS = 1000;
+        const MAX_MAP_POINTS = 10000;
+        const MIN_MOVE_DISTANCE = 0.02;
+
+        // =====================
+        // THREE.JS SETUP
+        // =====================
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x050510);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 8, 8);
+        camera.lookAt(0, 0, 0);
+
+        const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('canvas'), antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+
+        // Subtle grid
+        const gridHelper = new THREE.GridHelper(20, 40, 0x1a1a2e, 0x0f0f1a);
+        scene.add(gridHelper);
+
+        // Ambient lighting
+        const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+        scene.add(ambientLight);
+
+        // =====================
+        // PHONE MARKER
+        // =====================
+        const phoneGroup = new THREE.Group();
+
+        const phoneGeometry = new THREE.SphereGeometry(0.15, 32, 32);
+        const phoneMaterial = new THREE.MeshBasicMaterial({ color: 0x00aaff });
+        const phoneMesh = new THREE.Mesh(phoneGeometry, phoneMaterial);
+        phoneGroup.add(phoneMesh);
+
+        // Direction arrow
+        const arrowGeometry = new THREE.ConeGeometry(0.08, 0.3, 8);
+        const arrowMaterial = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+        const arrow = new THREE.Mesh(arrowGeometry, arrowMaterial);
+        arrow.rotation.x = -Math.PI / 2;
+        arrow.position.z = 0.3;
+        phoneGroup.add(arrow);
+
+        scene.add(phoneGroup);
+
+        // =====================
+        // PATH TRAIL
+        // =====================
+        const trailPositions = [];
+        const trailGeometry = new THREE.BufferGeometry();
+        const trailMaterial = new THREE.LineBasicMaterial({
+            color: 0x00ff88,
+            opacity: 0.6,
+            transparent: true,
+            linewidth: 2
+        });
+        const trailLine = new THREE.Line(trailGeometry, trailMaterial);
+        scene.add(trailLine);
+
+        // =====================
+        // WALL POINTS (accumulates over time)
+        // =====================
+        const mappedPositions = [];
+        const mappedColors = [];
+        const mapGeometry = new THREE.BufferGeometry();
+        const mapMaterial = new THREE.PointsMaterial({
+            size: 0.12,
+            vertexColors: true,
+            transparent: true,
+            opacity: 0.9,
+            sizeAttenuation: true
+        });
+        const mapPoints = new THREE.Points(mapGeometry, mapMaterial);
+        scene.add(mapPoints);
+
+        // =====================
+        // STATE
+        // =====================
+        let lastPosition = null;
+        let totalDistance = 0;
+        let updateCount = 0;
+        let lastSecond = Date.now();
+        let updatesPerSecond = 0;
+
+        // =====================
+        // UPDATE FUNCTIONS
+        // =====================
+        function updatePhone(pos, orientation) {
+            // Swap Y and Z for Three.js (Y-up)
+            const threePos = new THREE.Vector3(pos[0], pos[2], pos[1]);
+            phoneGroup.position.copy(threePos);
+
+            // Rotate based on yaw
+            const yaw = orientation[0] || 0;
+            phoneGroup.rotation.y = -yaw;
+
+            // Track distance moved
+            if (lastPosition) {
+                const dist = threePos.distanceTo(lastPosition);
+                if (dist > MIN_MOVE_DISTANCE && dist < 2) { // Ignore teleports
+                    totalDistance += dist;
+
+                    // Add to trail
+                    trailPositions.push(threePos.x, threePos.y, threePos.z);
+                    if (trailPositions.length > MAX_TRAIL_POINTS * 3) {
+                        trailPositions.splice(0, 3);
+                    }
+                    updateTrail();
+                    lastPosition = threePos.clone();
+                }
+            } else {
+                lastPosition = threePos.clone();
+            }
+
+            document.getElementById('position').textContent =
+                `${pos[0].toFixed(2)}, ${pos[1].toFixed(2)}, ${pos[2].toFixed(2)}`;
+            document.getElementById('orientation').textContent =
+                `${(orientation[0] * 180 / Math.PI).toFixed(0)}°`;
+            document.getElementById('distance').textContent = totalDistance.toFixed(2);
+        }
+
+        function updateTrail() {
+            trailGeometry.setAttribute('position',
+                new THREE.Float32BufferAttribute(trailPositions, 3));
+        }
+
+        function addWallPoints(points, colors) {
+            if (!points || points.length === 0) return;
+
+            for (let i = 0; i < points.length; i++) {
+                // Swap Y and Z
+                mappedPositions.push(points[i][0], points[i][2], points[i][1]);
+
+                if (colors && colors[i]) {
+                    mappedColors.push(colors[i][0], colors[i][1], colors[i][2]);
+                } else {
+                    mappedColors.push(1, 0.5, 0); // Default orange
+                }
+            }
+
+            // Limit total points
+            while (mappedPositions.length > MAX_MAP_POINTS * 3) {
+                mappedPositions.splice(0, 3);
+                mappedColors.splice(0, 3);
+            }
+
+            // Update geometry
+            mapGeometry.setAttribute('position',
+                new THREE.Float32BufferAttribute(mappedPositions, 3));
+            mapGeometry.setAttribute('color',
+                new THREE.Float32BufferAttribute(mappedColors, 3));
+
+            document.getElementById('pointCount').textContent = Math.floor(mappedPositions.length / 3);
+        }
+
+        function updateStructure(structure) {
+            if (!structure || structure.length < 4) return;
+
+            for (let i = 0; i < 4; i++) {
+                const val = Math.abs(structure[i]).toFixed(2);
+                document.getElementById(`struct${i}`).textContent = `${val}m`;
+            }
+        }
+
+        function clearMap() {
+            mappedPositions.length = 0;
+            mappedColors.length = 0;
+            trailPositions.length = 0;
+            totalDistance = 0;
+            lastPosition = null;
+            mapGeometry.setAttribute('position', new THREE.Float32BufferAttribute([], 3));
+            mapGeometry.setAttribute('color', new THREE.Float32BufferAttribute([], 3));
+            trailGeometry.setAttribute('position', new THREE.Float32BufferAttribute([], 3));
+            document.getElementById('pointCount').textContent = '0';
+            document.getElementById('distance').textContent = '0.00';
+        }
+
+        document.getElementById('clearBtn').onclick = clearMap;
+
+        // =====================
+        // WEBSOCKET
+        // =====================
+        let ws = null;
+
+        function connect() {
+            document.getElementById('status').className = 'disconnected';
+            document.getElementById('status').textContent = 'Connecting...';
+
+            ws = new WebSocket(WS_URL);
+
+            ws.onopen = () => {
+                document.getElementById('status').className = 'waiting';
+                document.getElementById('status').textContent = '📡 Waiting for phone...';
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+
+                    if (data.type === 'welcome') {
+                        console.log('Connected:', data);
+                        if (data.sensors > 0) {
+                            document.getElementById('status').className = 'connected';
+                            document.getElementById('status').textContent = '🟢 Streaming';
+                        }
+                    }
+
+                    if (data.type === 'spatial_update') {
+                        document.getElementById('status').className = 'connected';
+                        document.getElementById('status').textContent = '🟢 Streaming';
+
+                        // Update phone position
+                        if (data.phone_position) {
+                            updatePhone(data.phone_position, data.phone_orientation || [0, 0]);
+                        }
+
+                        // Add wall points
+                        if (data.wall_points) {
+                            addWallPoints(data.wall_points, data.wall_colors);
+                        }
+
+                        // Update structure display
+                        if (data.structure) {
+                            updateStructure(data.structure);
+                        }
+
+                        // Track updates per second
+                        updateCount++;
+                        const now = Date.now();
+                        if (now - lastSecond > 1000) {
+                            updatesPerSecond = updateCount;
+                            updateCount = 0;
+                            lastSecond = now;
+                            document.getElementById('updates').textContent = updatesPerSecond;
+                        }
+                    }
+                } catch (e) {
+                    console.error('Parse error:', e);
+                }
+            };
+
+            ws.onclose = () => {
+                document.getElementById('status').className = 'disconnected';
+                document.getElementById('status').textContent = '🔴 Disconnected';
+                setTimeout(connect, 2000);
+            };
+
+            ws.onerror = (e) => console.error('WS error:', e);
+        }
+
+        // Keep-alive
+        setInterval(() => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'ping' }));
+            }
+        }, 30000);
+
+        // =====================
+        // ANIMATION
+        // =====================
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+        connect();
+    </script>
+</body>
+
+</html>
