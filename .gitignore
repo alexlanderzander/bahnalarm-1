@@ -100,3 +100,15 @@ temp/
 
 # ==================== Ruby (for CocoaPods) ====================
 Gemfile.lock
+
+# ==================== Python ====================
+**/venv/
+**/.venv/
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+dist/
+*.egg-info/
+.eggs/
